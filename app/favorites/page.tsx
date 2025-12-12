@@ -20,14 +20,7 @@ type FavRow = {
 type FavRowDb = {
   id: string;
   created_at: string;
-  videos:
-    | {
-        id: string;
-        title: string;
-        youtube_id: string;
-        level: string;
-      }[]
-    | null;
+  video_id: string;
 };
 
 function levelRank(level: string) {
@@ -105,29 +98,64 @@ export default function FavoritesPage() {
         setUserSubLevel("free");
       }
 
-      const { data, error } = await supabase
+      const { data: favData, error: favErr } = await supabase
         .from("favorites")
-        .select("id, created_at, videos (id, title, youtube_id, level)")
+        .select("id, created_at, video_id")
         .eq("user_id", userData.user.id)
         .order("created_at", { ascending: false });
 
       if (cancelled) return;
 
-      if (error) {
-        setError(error.message);
+      if (favErr) {
+        setError(favErr.message);
         setRows([]);
       } else {
-        const normalized: FavRow[] = (data ?? []).map((r: FavRowDb) => {
-          const oneVideo = r.videos?.[0] ?? null;
+        const favRows: FavRowDb[] = (favData ?? []) as FavRowDb[];
+        const videoIds = Array.from(
+          new Set(
+            favRows
+              .map((r) => r.video_id)
+              .filter((v): v is string => typeof v === "string" && v.length > 0)
+          )
+        );
 
-          return {
+        // Fetch the related videos in one go
+        const { data: vidData, error: vidErr } = await supabase
+          .from("videos")
+          .select("id, title, youtube_id, level")
+          .in("id", videoIds);
+
+        if (vidErr) {
+          // If videos fetch fails, still show the favourites list (without previews)
+          setError(vidErr.message);
+          setRows(
+            favRows.map((r) => ({
+              id: r.id,
+              created_at: r.created_at,
+              videos: null,
+            }))
+          );
+        } else {
+          const byId = new Map<string, NonNullable<FavRow["videos"]>>(
+            (vidData ?? []).map((v) => [
+              String(v.id),
+              {
+                id: String(v.id),
+                title: String(v.title),
+                youtube_id: String(v.youtube_id),
+                level: String(v.level ?? ""),
+              },
+            ])
+          );
+
+          const normalized: FavRow[] = favRows.map((r) => ({
             id: r.id,
             created_at: r.created_at,
-            videos: oneVideo,
-          };
-        });
+            videos: byId.get(String(r.video_id)) ?? null,
+          }));
 
-        setRows(normalized);
+          setRows(normalized);
+        }
       }
 
       setLoading(false);
@@ -225,13 +253,49 @@ export default function FavoritesPage() {
             gap: "1.5rem",
           }}
         >
-          {rows
-            .filter((r) => r.videos)
-            .map((r) => {
-              const video = r.videos!;
+          {rows.map((r) => {
+              const video = r.videos;
               const busy = busyFavId === r.id;
-              const unlocked = canAccessVideo(userSubLevel, video.level);
+              const unlocked = video ? canAccessVideo(userSubLevel, video.level) : false;
               const upgradeHref = "/about"; // ide NE 404 legyen
+
+              if (!video) {
+                return (
+                  <article
+                    key={r.id}
+                    style={{
+                      borderRadius: "14px",
+                      padding: "0.95rem",
+                      backgroundColor: "#ffffff",
+                      border: "1px solid #e5e7eb",
+                      boxShadow: "0 3px 6px rgba(15,23,42,0.04), 0 8px 16px rgba(15,23,42,0.06)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "0.6rem",
+                    }}
+                  >
+                    <div style={{ color: "#6b7280", fontSize: "0.95rem" }}>
+                      This favourite could not be loaded (missing video details).
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeFavorite(r.id)}
+                      disabled={busy}
+                      style={{
+                        alignSelf: "flex-start",
+                        border: "1px solid #e5e7eb",
+                        background: "#fff7ed",
+                        color: "#c2410c",
+                        borderRadius: "999px",
+                        padding: "0.4rem 0.75rem",
+                        cursor: busy ? "not-allowed" : "pointer",
+                      }}
+                    >
+                      {busy ? "Removing…" : "Remove"}
+                    </button>
+                  </article>
+                );
+              }
 
               return (
                 <article
