@@ -17,6 +17,19 @@ type FavRow = {
   } | null;
 };
 
+type FavRowDb = {
+  id: string;
+  created_at: string;
+  videos:
+    | {
+        id: string;
+        title: string;
+        youtube_id: string;
+        level: string;
+      }[]
+    | null;
+};
+
 function levelRank(level: string) {
   const s = (level ?? "").trim().toLowerCase();
 
@@ -83,7 +96,8 @@ export default function FavoritesPage() {
             .maybeSingle();
 
         if (!profErr) {
-          setUserSubLevel((prof as any)?.subscription_level ?? "free");
+          const subscription_level = (prof as { subscription_level?: string | null } | null)?.subscription_level;
+          setUserSubLevel(subscription_level ?? "free");
         } else {
           setUserSubLevel("free");
         }
@@ -103,7 +117,17 @@ export default function FavoritesPage() {
         setError(error.message);
         setRows([]);
       } else {
-        setRows((data ?? []) as FavRow[]);
+        const normalized: FavRow[] = (data ?? []).map((r: FavRowDb) => {
+          const oneVideo = r.videos?.[0] ?? null;
+
+          return {
+            id: r.id,
+            created_at: r.created_at,
+            videos: oneVideo,
+          };
+        });
+
+        setRows(normalized);
       }
 
       setLoading(false);
@@ -134,11 +158,15 @@ export default function FavoritesPage() {
         .eq("id", favId)
         .eq("user_id", userId);
 
-      if (error) throw error;
+      if (error) {
+        alert(error.message);
+        return;
+      }
 
       setRows((prev) => prev.filter((r) => r.id !== favId));
-    } catch (e: any) {
-      alert(e?.message ?? "Could not remove from favourites.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Could not remove from favourites.";
+      alert(message);
     } finally {
       setBusyFavId(null);
     }
