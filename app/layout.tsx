@@ -2,6 +2,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Link from "next/link";
+import { cookies } from "next/headers";
+import { createServerClient } from "@supabase/ssr";
 
 export const metadata: Metadata = {
   title: "Angolozz Otthonról – English with [Teacher Name]",
@@ -9,11 +11,36 @@ export const metadata: Metadata = {
     "Video lessons for intermediate and advanced learners – grammar clarity and real-life vocabulary.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const cookieStore = await cookies();
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value;
+        },
+        set() {
+          // Server Components cannot set cookies.
+          // Cookie updates should be handled in Route Handlers (e.g. /auth/signout) or Middleware.
+        },
+        remove() {
+          // Server Components cannot remove cookies.
+        },
+      },
+    }
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   return (
     <html lang="hu">
       <body
@@ -62,16 +89,41 @@ export default function RootLayout({
               <Link href="/videos" style={{ textDecoration: "none", color: "#111827" }}>
                 Video Library
               </Link>
-              <Link
-                href="/auth"
-                style={{
-                  textDecoration: "none",
-                  color: "#16a34a",
-                  fontWeight: 600,
-                }}
-              >
-                Login
-              </Link>
+              {user ? (
+                <>
+                  <Link
+                    href="/favorites"
+                    style={{
+                      textDecoration: "none",
+                      color: "#111827",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Favorites
+                  </Link>
+                  <Link
+                    href="/auth"
+                    style={{
+                      textDecoration: "none",
+                      color: "#16a34a",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Account
+                  </Link>
+                </>
+              ) : (
+                <Link
+                  href="/auth"
+                  style={{
+                    textDecoration: "none",
+                    color: "#16a34a",
+                    fontWeight: 600,
+                  }}
+                >
+                  Login
+                </Link>
+              )}
             </div>
           </nav>
         </header>
