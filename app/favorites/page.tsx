@@ -43,10 +43,10 @@ function canAccessVideo(userSubLevel: string | null, videoLevel: string) {
 
 function prettyLevel(level: string) {
   const s = (level ?? "").trim().toLowerCase();
-  if (s === "upper-intermediate" || s === "upper_intermediate") return "Upper-Intermediate";
-  if (s === "intermediate") return "Intermediate";
-  if (s === "advanced") return "Advanced";
-  if (!s) return "Other";
+  if (s === "upper-intermediate" || s === "upper_intermediate") return "Felső középhaladó";
+  if (s === "intermediate") return "Középhaladó";
+  if (s === "advanced") return "Haladó";
+  if (!s) return "Egyéb";
   return s
     .split(/[-_\s]+/)
     .filter(Boolean)
@@ -193,7 +193,7 @@ export default function FavoritesPage() {
 
       setRows((prev) => prev.filter((r) => r.id !== favId));
     } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : "Could not remove from favourites.";
+      const message = e instanceof Error ? e.message : "Nem sikerült eltávolítani a kedvencek közül.";
       alert(message);
     } finally {
       setBusyFavId(null);
@@ -203,9 +203,9 @@ export default function FavoritesPage() {
   return (
     <div style={{ maxWidth: "960px", margin: "0 auto", padding: "2rem 1rem 3rem" }}>
       <header style={{ marginBottom: "1.5rem" }}>
-        <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#111827" }}>Favourites</h1>
+        <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#111827" }}>Kedvencek</h1>
         <p style={{ color: "#4b5563", maxWidth: "820px" }}>
-          Your saved videos.
+          A mentett videóid.
         </p>
       </header>
 
@@ -220,17 +220,17 @@ export default function FavoritesPage() {
           }}
         >
           <p style={{ margin: 0, color: "#4b5563" }}>
-            Please{" "}
+            A kedvencek megtekintéséhez kérjük,{" "}
             <Link href="/auth" style={{ color: "#2563eb", textDecoration: "none" }}>
-              log in
+              jelentkezz be
             </Link>{" "}
-            to view your favourites.
+            .
           </p>
         </div>
       ) : error ? (
-        <div style={{ color: "#b91c1c" }}>Couldn’t load favourites: {error}</div>
+        <div style={{ color: "#b91c1c" }}>Nem sikerült betölteni a kedvenceket: {error}</div>
       ) : loading ? (
-        <div style={{ color: "#6b7280" }}>Loading favourites…</div>
+        <div style={{ color: "#6b7280" }}>Kedvencek betöltése…</div>
       ) : items.length === 0 ? (
         <div
           style={{
@@ -242,7 +242,7 @@ export default function FavoritesPage() {
           }}
         >
           <p style={{ margin: 0, color: "#4b5563" }}>
-            You haven’t saved any favourites yet. Go to the video library and tap the star.
+            Még nem mentettél kedvenceket. Menj a videótárba, és kattints a csillagra.
           </p>
         </div>
       ) : (
@@ -275,7 +275,7 @@ export default function FavoritesPage() {
                     }}
                   >
                     <div style={{ color: "#6b7280", fontSize: "0.95rem" }}>
-                      This favourite could not be loaded (missing video details).
+                      Ez a kedvenc nem tölthető be (hiányoznak a videó adatai).
                     </div>
                     <button
                       type="button"
@@ -291,7 +291,7 @@ export default function FavoritesPage() {
                         cursor: busy ? "not-allowed" : "pointer",
                       }}
                     >
-                      {busy ? "Removing…" : "Remove"}
+                      {busy ? "Eltávolítás…" : "Eltávolítás"}
                     </button>
                   </article>
                 );
@@ -340,7 +340,7 @@ export default function FavoritesPage() {
                         type="button"
                         onClick={() => removeFavorite(r.id)}
                         disabled={busy}
-                        title="Remove from favourites"
+                        title="Eltávolítás a kedvencek közül"
                         style={{
                           border: "1px solid #e5e7eb",
                           background: "#fff7ed",
@@ -412,10 +412,10 @@ export default function FavoritesPage() {
                               }}
                           >
                             <div style={{ fontSize: "0.9rem", color: "#111827", marginBottom: "0.35rem" }}>
-                              🔒 Locked — requires {prettyLevel(video.level)}
+                              🔒 Zárolva — szükséges: {prettyLevel(video.level)}
                             </div>
                             <div style={{ fontSize: "0.85rem", color: "#4b5563", marginBottom: "0.6rem" }}>
-                              Upgrade your subscription to watch this lesson.
+                              Válts csomagot, hogy megnézhesd ezt a leckét.
                             </div>
                             <Link
                                 href={upgradeHref}
@@ -431,7 +431,7 @@ export default function FavoritesPage() {
                                   fontSize: "0.85rem",
                                 }}
                             >
-                              Upgrade →
+                              Csomagváltás →
                             </Link>
                           </div>
                         </div>
@@ -445,7 +445,7 @@ export default function FavoritesPage() {
 
       <footer style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         <Link href="/videos" style={{ color: "#2563eb", textDecoration: "none" }}>
-          ← Back to Video Library
+          ← Vissza a videótárhoz
         </Link>
       </footer>
     </div>

@@ -25,11 +25,11 @@ type SubscriptionLevel =
 
 function prettyLevel(level: string) {
   const s = (level ?? "").trim().toLowerCase();
-  if (s === "upper-intermediate" || s === "upper_intermediate") return "Upper-Intermediate";
-  if (s === "intermediate") return "Intermediate";
-  if (s === "advanced") return "Advanced";
-  if (s === "none") return "None";
-  if (!s) return "Other";
+  if (s === "upper-intermediate" || s === "upper_intermediate") return "Felső középhaladó";
+  if (s === "intermediate") return "Középhaladó";
+  if (s === "advanced") return "Haladó";
+  if (s === "none") return "Nincs";
+  if (!s) return "Egyéb";
   return s
     .split(/[-_\s]+/)
     .filter(Boolean)
@@ -241,7 +241,7 @@ export default function VideosPage() {
         });
       }
     } catch (e: any) {
-      alert(e?.message ?? "Could not update favourites.");
+      alert(e?.message ?? "Nem sikerült frissíteni a kedvenceket.");
     } finally {
       setFavBusyId(null);
     }
@@ -251,15 +251,15 @@ export default function VideosPage() {
     <div style={{ maxWidth: "960px", margin: "0 auto", padding: "2rem 1rem 3rem" }}>
       <header style={{ marginBottom: "1.5rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "1rem" }}>
-          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#111827" }}>Video Library</h1>
+          <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#111827" }}>Videótár</h1>
           <div style={{ fontSize: "0.85rem", color: "#6b7280", whiteSpace: "nowrap" }}>
             {user ? (
-              <>Signed in{user.email ? `: ${user.email}` : ""}</>
+              <>Bejelentkezve{user.email ? `: ${user.email}` : ""}</>
             ) : (
               <>
-                Not signed in ·{" "}
+                Nincs bejelentkezve ·{" "}
                 <Link href="/auth" style={{ color: "#2563eb", textDecoration: "none" }}>
-                  Log in
+                  Bejelentkezés
                 </Link>
               </>
             )}
@@ -267,8 +267,8 @@ export default function VideosPage() {
         </div>
 
         <p style={{ color: "#4b5563", maxWidth: "820px" }}>
-          Videos are loaded from Supabase. Save favourites with the star.
-          {user ? ` Your plan: ${prettyLevel(subscriptionLevel)}.` : ""}
+          A videók a Supabase-ből töltődnek be. A csillaggal mentheted a kedvenceket.
+          {user ? ` Előfizetésed: ${prettyLevel(subscriptionLevel)}.` : ""}
         </p>
       </header>
 
@@ -282,16 +282,16 @@ export default function VideosPage() {
             marginBottom: "1.25rem",
           }}
         >
-          <p style={{ margin: 0, color: "#b91c1c" }}>Couldn’t load videos: {error}</p>
+          <p style={{ margin: 0, color: "#b91c1c" }}>Nem sikerült betölteni a videókat: {error}</p>
         </div>
       ) : null}
 
       {loading ? (
-        <div style={{ color: "#6b7280" }}>Loading videos…</div>
+        <div style={{ color: "#6b7280" }}>Videók betöltése…</div>
       ) : videos.length === 0 ? (
         <div style={{ backgroundColor: "#ffffff", border: "1px solid #e5e7eb", borderRadius: "18px", padding: "1.5rem" }}>
           <p style={{ margin: 0, color: "#4b5563" }}>
-            No videos yet. Add rows into <code>public.videos</code> in Supabase and refresh.
+            Még nincs videó. Adj hozzá sorokat a Supabase <code>public.videos</code> táblájába, majd frissíts.
           </p>
         </div>
       ) : (
@@ -340,7 +340,13 @@ export default function VideosPage() {
                           type="button"
                           onClick={() => toggleFavorite(video.id)}
                           disabled={busy}
-                          title={user ? (isFav ? "Remove from favourites" : "Add to favourites") : "Log in to save favourites"}
+                          title={
+                            user
+                              ? isFav
+                                ? "Eltávolítás a kedvencek közül"
+                                : "Hozzáadás a kedvencekhez"
+                              : "Jelentkezz be a kedvencek mentéséhez"
+                          }
                           style={{
                             border: "1px solid #e5e7eb",
                             background: isFav ? "#fff7ed" : "#ffffff",
@@ -395,12 +401,12 @@ export default function VideosPage() {
                           }}
                         >
                           <div style={{ maxWidth: "340px" }}>
-                            <div style={{ fontSize: "1.25rem", marginBottom: "0.35rem" }}>🔒 Locked</div>
+                            <div style={{ fontSize: "1.25rem", marginBottom: "0.35rem" }}>🔒 Zárolva</div>
 
                             {!user ? (
                               <>
                                 <div style={{ fontSize: "0.95rem", opacity: 0.9, marginBottom: "0.75rem" }}>
-                                  Please log in to access this video.
+                                  A videó megtekintéséhez kérjük, jelentkezz be.
                                 </div>
                                 <Link
                                   href="/auth"
@@ -417,16 +423,16 @@ export default function VideosPage() {
                                     fontWeight: 600,
                                   }}
                                 >
-                                  Log in
+                                  Bejelentkezés
                                 </Link>
                               </>
                             ) : (
                               <>
                                 <div style={{ fontSize: "0.95rem", opacity: 0.9, marginBottom: "0.35rem" }}>
-                                  Your plan ({prettyLevel(subscriptionLevel)}) doesn’t include this level.
+                                  Az előfizetésed ({prettyLevel(subscriptionLevel)}) nem tartalmazza ezt a szintet.
                                 </div>
                                 <div style={{ fontSize: "0.85rem", opacity: 0.75, marginBottom: "0.75rem" }}>
-                                  Required: {prettyLevel(video.level)}
+                                  Szükséges szint: {prettyLevel(video.level)}
                                 </div>
                                 <Link
                                   href="/account"
@@ -443,7 +449,7 @@ export default function VideosPage() {
                                     fontWeight: 600,
                                   }}
                                 >
-                                  Upgrade
+                                  Csomagváltás
                                 </Link>
                               </>
                             )}
@@ -458,12 +464,12 @@ export default function VideosPage() {
                         justifyContent: "space-between",
                         alignItems: "center",
                         marginTop: "0.25rem",
-                        fontSize: "0.85rem",
-                        color: "#6b7280",
-                      }}
-                    >
-                      <span style={{ opacity: 0.75 }}>{canWatch ? "✅ Included" : "🔒 Locked"}</span>
-                      <span style={{ opacity: 0.75 }}>Requires: {prettyLevel(video.level)}</span>
+                      fontSize: "0.85rem",
+                      color: "#6b7280",
+                    }}
+                  >
+                      <span style={{ opacity: 0.75 }}>{canWatch ? "✅ Elérhető" : "🔒 Zárolva"}</span>
+                      <span style={{ opacity: 0.75 }}>Szükséges: {prettyLevel(video.level)}</span>
                     </div>
                   </article>
                 );
@@ -475,10 +481,10 @@ export default function VideosPage() {
 
       <footer style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
         <Link href="/" style={{ color: "#2563eb", textDecoration: "none" }}>
-          ← Back to Home
+          ← Vissza a főoldalra
         </Link>
         <Link href="/favorites" style={{ color: "#2563eb", textDecoration: "none" }}>
-          View favourites →
+          Kedvencek megtekintése →
         </Link>
       </footer>
     </div>

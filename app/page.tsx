@@ -29,7 +29,7 @@ export default function HomePage() {
                 >
                     <Image
                         src="/hero_elvira.jpg"
-                        alt="English teacher hero"
+                        alt="Angoltanár nyitókép"
                         fill
                         priority
                         sizes="(max-width: 960px) 100vw, 960px"
@@ -38,14 +38,7 @@ export default function HomePage() {
                 </div>
 
                 {/* Tartalom két oszlopban */}
-                <div
-                    style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1.4fr) minmax(0, 1fr)",
-                        gap: "1.75rem",
-                        alignItems: "center",
-                    }}
-                >
+                <div className="hero-grid">
                     <div>
                         <h1
                             style={{
@@ -54,7 +47,7 @@ export default function HomePage() {
                                 color: "#111827",
                             }}
                         >
-                            English with [Teacher Name]
+                            Angolozz Otthonról
                         </h1>
                         <p
                             style={{
@@ -73,9 +66,9 @@ export default function HomePage() {
                                 color: "#4b5563",
                             }}
                         >
-                            Video lessons for intermediate and advanced learners –
-                            clear grammar explanations, natural example sentences,
-                            and higher-level vocabulary, all in one place.
+                            Videóleckék középhaladó és haladó tanulóknak –
+                            érthető nyelvtani magyarázatok, természetes
+                            példamondatok és magasabb szintű szókincs egy helyen.
                         </p>
 
                         <div
@@ -100,7 +93,7 @@ export default function HomePage() {
                                     display: "inline-block",
                                 }}
                             >
-                                ▶ Try 2 free lessons
+                                ▶ Nézd meg a 2 ingyenes leckét
                             </Link>
                             <Link
                                 href="/videos"
@@ -115,7 +108,7 @@ export default function HomePage() {
                                     display: "inline-block",
                                 }}
                             >
-                                Browse full video library
+                                Teljes videótár megtekintése
                             </Link>
                         </div>
                     </div>
@@ -138,7 +131,7 @@ export default function HomePage() {
                                 color: "#111827",
                             }}
                         >
-                            For intermediate & advanced learners
+                            Középhaladó és haladó tanulóknak
                         </h2>
                         <p
                             style={{
@@ -147,7 +140,7 @@ export default function HomePage() {
                                 marginBottom: "0.6rem",
                             }}
                         >
-                            Structured video lessons designed to help you:
+                            Felépített videóleckék, amelyek segítenek:
                         </p>
                         <ul
                             style={{
@@ -160,9 +153,9 @@ export default function HomePage() {
                                 color: "#374151",
                             }}
                         >
-                            <li>Understand tricky grammar more clearly</li>
-                            <li>Build higher-level, natural vocabulary</li>
-                            <li>Gain confidence using English in real life</li>
+                            <li>A nehezebb nyelvtan tisztább megértésében</li>
+                            <li>Magasabb szintű, természetes szókincs építésében</li>
+                            <li>Magabiztos angol használatban a való életben</li>
                         </ul>
                     </div>
                 </div>
@@ -185,7 +178,7 @@ export default function HomePage() {
                         color: "#111827",
                     }}
                 >
-                    A sorozat célja / Purpose of this video series
+                    A sorozat célja
                 </h2>
                 <p
                     style={{
@@ -206,11 +199,11 @@ export default function HomePage() {
                         color: "#4b5563",
                     }}
                 >
-                    The goal of <strong>angolozzotthonrol.hu</strong> is to
-                    support intermediate and advanced learners in better
-                    understanding specific grammar rules and patterns, and to
-                    help them acquire higher-level vocabulary through carefully
-                    selected example sentences.
+                    Az <strong>angolozzotthonrol.hu</strong> célja, hogy
+                    középhaladó és haladó tanulókat támogasson bizonyos
+                    nyelvtani szabályok és összefüggések jobb megértésében,
+                    és segítsen magasabb szintű szókincs elsajátításában
+                    gondosan kiválasztott példamondatokon keresztül.
                 </p>
             </section>
 
@@ -223,7 +216,7 @@ export default function HomePage() {
                         color: "#111827",
                     }}
                 >
-                    Try two free video lessons
+                    Próbáld ki két ingyenes videóleckét
                 </h2>
                 <p
                     style={{
@@ -232,8 +225,8 @@ export default function HomePage() {
                         marginBottom: "1rem",
                     }}
                 >
-                    Get a taste of the lessons: clear explanations, lots of
-                    examples, and a calm, structured approach.
+                    Kóstolj bele a leckékbe: érthető magyarázatok, sok
+                    példa és nyugodt, felépített megközelítés.
                 </p>
 
                 <div
@@ -252,7 +245,7 @@ export default function HomePage() {
                                 color: "#111827",
                             }}
                         >
-                            Free Lesson 1 – [Title]
+                            Ingyenes lecke 1 – [Cím]
                         </h3>
                         <div
                             style={{
@@ -267,7 +260,7 @@ export default function HomePage() {
                         >
                             <iframe
                                 src="https://www.youtube.com/embed/VIDEO_ID_1"
-                                title="Free English lesson 1"
+                                title="Ingyenes angol lecke 1"
                                 style={{
                                     position: "absolute",
                                     top: 0,
@@ -289,7 +282,7 @@ export default function HomePage() {
                                 color: "#111827",
                             }}
                         >
-                            Free Lesson 2 – [Title]
+                            Ingyenes lecke 2 – [Cím]
                         </h3>
                         <div
                             style={{
@@ -304,7 +297,7 @@ export default function HomePage() {
                         >
                             <iframe
                                 src="https://www.youtube.com/embed/VIDEO_ID_2"
-                                title="Free English lesson 2"
+                                title="Ingyenes angol lecke 2"
                                 style={{
                                     position: "absolute",
                                     top: 0,
@@ -335,7 +328,7 @@ export default function HomePage() {
             >
                 <Image
                     src="/teacher_portrait.jpg"
-                    alt="English teacher portrait"
+                    alt="Angoltanár portré"
                     width={90}
                     height={90}
                     style={{
@@ -352,10 +345,10 @@ export default function HomePage() {
                             marginBottom: "0.35rem",
                         }}
                     >
-                        I am an English teacher specialising in adult learners at
-                        intermediate and advanced levels. My focus is on clear
-                        explanations, lots of meaningful examples, and building
-                        real confidence in communication.
+                        Angoltanár vagyok, felnőtt tanulókra specializálódva
+                        középhaladó és haladó szinten. A fókuszom az érthető
+                        magyarázatokon, a sok értelmes példán és a valódi
+                        kommunikációs magabiztosság építésén van.
                     </p>
                     <a
                         href="/about"
@@ -365,7 +358,7 @@ export default function HomePage() {
                             textDecoration: "none",
                         }}
                     >
-                        Learn more about me →
+                        Tudj meg rólam többet →
                     </a>
                 </div>
             </section>

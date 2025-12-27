@@ -22,7 +22,7 @@ export default function AuthPage() {
         setError(null);
 
         if (!email || (mode !== "reset" && !password) || (mode === "signup" && !fullName)) {
-            setError("Please fill in all required fields.");
+            setError("Kérjük, töltsd ki az összes kötelező mezőt.");
             return;
         }
 
@@ -36,7 +36,7 @@ export default function AuthPage() {
                 });
                 if (signInError) throw signInError;
 
-                setMessage("Logged in successfully. Redirecting…");
+                setMessage("Sikeres bejelentkezés. Átirányítás…");
                 // Small delay so the user sees feedback
                 setTimeout(() => {
                     window.location.href = "/videos";
@@ -57,7 +57,7 @@ export default function AuthPage() {
                 if (signUpError) throw signUpError;
 
                 setMessage(
-                    "Account created. Please check your email to confirm your address (if required), then log in."
+                    "A fiók létrejött. Kérjük, ellenőrizd az e-mailt a cím megerősítéséhez (ha szükséges), majd jelentkezz be."
                 );
                 return;
             }
@@ -66,12 +66,12 @@ export default function AuthPage() {
                 const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
                 if (resetError) throw resetError;
 
-                setMessage("Password reset email sent. Please check your inbox.");
+                setMessage("A jelszó-visszaállító e-mail elküldve. Kérjük, ellenőrizd a postaládádat.");
                 return;
             }
         } catch (err) {
             console.error(err);
-            setError("Something went wrong. Please try again.");
+            setError("Valami hiba történt. Kérjük, próbáld újra.");
         } finally {
             setLoading(false);
         }
@@ -109,12 +109,12 @@ export default function AuthPage() {
             setLoading(true);
             const { error: signOutError } = await supabase.auth.signOut();
             if (signOutError) throw signOutError;
-            setMessage("Signed out successfully.");
+            setMessage("Sikeresen kijelentkeztél.");
             setUserEmail(null);
             setMode("login");
         } catch (err) {
             console.error(err);
-            setError("Could not sign out. Please try again.");
+            setError("Nem sikerült kijelentkezni. Kérjük, próbáld újra.");
         } finally {
             setLoading(false);
         }
@@ -147,10 +147,10 @@ export default function AuthPage() {
                 {userEmail && (
                     <div style={{ marginBottom: "1.25rem" }}>
                         <h1 style={{ fontSize: "1.35rem", marginBottom: "0.35rem", color: "#111827" }}>
-                            Your Account
+                            Fiókod
                         </h1>
                         <p style={{ fontSize: "0.9rem", color: "#4b5563", margin: 0 }}>
-                            Signed in as <strong>{userEmail}</strong>
+                            Bejelentkezve mint <strong>{userEmail}</strong>
                         </p>
 
                         <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
@@ -163,7 +163,7 @@ export default function AuthPage() {
                                     fontSize: "0.95rem",
                                 }}
                             >
-                                Go to Videos
+                                Ugrás a videókhoz
                             </Link>
                             <Link
                                 href="/favorites"
@@ -174,7 +174,7 @@ export default function AuthPage() {
                                     fontSize: "0.95rem",
                                 }}
                             >
-                                View Favourites
+                                Kedvencek megtekintése
                             </Link>
                         </div>
 
@@ -196,7 +196,7 @@ export default function AuthPage() {
                                 opacity: loading ? 0.9 : 1,
                             }}
                         >
-                            {loading ? "Signing out..." : "Sign out"}
+                            {loading ? "Kijelentkezés..." : "Kijelentkezés"}
                         </button>
                     </div>
                 )}
@@ -233,7 +233,7 @@ export default function AuthPage() {
                                 transition: "all 160ms ease-out",
                             }}
                         >
-                            Log in
+                            Bejelentkezés
                         </button>
                         <button
                             type="button"
@@ -254,7 +254,7 @@ export default function AuthPage() {
                                 transition: "all 160ms ease-out",
                             }}
                         >
-                            Sign up
+                            Regisztráció
                         </button>
                     </div>
                 )}
@@ -269,10 +269,10 @@ export default function AuthPage() {
                         }}
                     >
                         {mode === "login"
-                            ? "Welcome back!"
+                            ? "Örülünk, hogy visszatértél!"
                             : mode === "signup"
-                                ? "Start learning with full access"
-                                : "Reset your password"}
+                                ? "Kezdd el teljes hozzáféréssel"
+                                : "Jelszó visszaállítása"}
                     </h1>
                     <p
                         style={{
@@ -282,10 +282,10 @@ export default function AuthPage() {
                         }}
                     >
                         {mode === "login"
-                            ? "Log in to watch all your lessons and access your favourite videos."
+                            ? "Jelentkezz be, hogy megnézhesd az összes leckét és elérd a kedvenceidet."
                             : mode === "signup"
-                                ? "Create an account to unlock the full video library and save your favourites."
-                                : "Enter your email and we’ll send you a password reset link."}
+                                ? "Hozz létre fiókot a teljes videótár eléréséhez és a kedvencek mentéséhez."
+                                : "Add meg az e-mail címed, és küldünk egy jelszó-visszaállító linket."}
                     </p>
                 </div>
 
@@ -334,7 +334,7 @@ export default function AuthPage() {
                                     color: "#374151",
                                 }}
                             >
-                                Full name
+                                Teljes név
                             </label>
                             <input
                                 id="fullName"
@@ -398,7 +398,7 @@ export default function AuthPage() {
                                     color: "#374151",
                                 }}
                             >
-                                Password
+                                Jelszó
                             </label>
                             <input
                                 id="password"
@@ -435,7 +435,7 @@ export default function AuthPage() {
                                         textAlign: "left",
                                     }}
                                 >
-                                    Forgot password?
+                                    Elfelejtetted a jelszavad?
                                 </button>
                             )}
                         </div>
@@ -461,15 +461,15 @@ export default function AuthPage() {
                     >
                         {loading
                             ? mode === "login"
-                                ? "Logging in..."
+                                ? "Bejelentkezés..."
                                 : mode === "signup"
-                                    ? "Creating account..."
-                                    : "Sending reset email..."
+                                    ? "Fiók létrehozása..."
+                                    : "Visszaállító e-mail küldése..."
                             : mode === "login"
-                                ? "Log in"
+                                ? "Bejelentkezés"
                                 : mode === "signup"
-                                    ? "Sign up"
-                                    : "Send reset email"}
+                                    ? "Regisztráció"
+                                    : "Visszaállító e-mail küldése"}
                     </button>
 
                     <div style={{ display: "flex", flexDirection: "column", gap: "0.55rem" }}>
@@ -482,7 +482,7 @@ export default function AuthPage() {
                         >
                             {mode === "login" ? (
                                 <>
-                                    Don&apos;t have an account yet?{" "}
+                                    Még nincs fiókod?{" "}
                                     <button
                                         type="button"
                                         onClick={() => switchTo("signup")}
@@ -496,12 +496,12 @@ export default function AuthPage() {
                                             textDecoration: "underline",
                                         }}
                                     >
-                                        Create one here.
+                                        Itt hozhatsz létre.
                                     </button>
                                 </>
                             ) : mode === "signup" ? (
                                 <>
-                                    Already registered?{" "}
+                                    Már regisztráltál?{" "}
                                     <button
                                         type="button"
                                         onClick={() => switchTo("login")}
@@ -515,12 +515,12 @@ export default function AuthPage() {
                                             textDecoration: "underline",
                                         }}
                                     >
-                                        Log in here.
+                                        Itt jelentkezhetsz be.
                                     </button>
                                 </>
                             ) : (
                                 <>
-                                    Remembered your password?{" "}
+                                    Eszedbe jutott a jelszavad?{" "}
                                     <button
                                         type="button"
                                         onClick={() => switchTo("login")}
@@ -534,7 +534,7 @@ export default function AuthPage() {
                                             textDecoration: "underline",
                                         }}
                                     >
-                                        Back to login.
+                                        Vissza a bejelentkezéshez.
                                     </button>
                                 </>
                             )}
@@ -542,7 +542,7 @@ export default function AuthPage() {
 
                         <div style={{ fontSize: "0.8rem", color: "#6b7280" }}>
                             <Link href="/" style={{ color: "#2563eb", textDecoration: "none" }}>
-                                ← Back to Home
+                                ← Vissza a főoldalra
                             </Link>
                         </div>
                     </div>

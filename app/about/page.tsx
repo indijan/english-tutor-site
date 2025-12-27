@@ -24,7 +24,7 @@ export default function AboutPage() {
             color: "#111827",
           }}
         >
-          About me
+          Rólam
         </h1>
 
         <div
@@ -53,9 +53,8 @@ export default function AboutPage() {
                 marginBottom: "0.75rem",
               }}
             >
-              [Here comes the English version of your introduction – your teaching
-              background, what you focus on, and what students can expect from
-              your lessons.]
+              [Itt jöhet a bemutatkozó szöveg folytatása – tanítási tapasztalat,
+              fókusz, és hogy mire számíthatnak a diákok a leckéken.]
             </p>
             <a
               href="https://online.suli.hu/oktatok/adatlap/elvi0920"
@@ -74,13 +73,13 @@ export default function AboutPage() {
                 textDecoration: "none",
               }}
             >
-              See reviews on online.suli.hu
+              Értékelések az online.suli.hu oldalon
             </a>
           </div>
 
           <img
             src="/teacher_portrait.jpg"
-            alt="English teacher portrait"
+            alt="Angoltanár portré"
             style={{
               width: "160px",
               height: "160px",

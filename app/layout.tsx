@@ -1,14 +1,14 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
+import Header from "./components/Header";
 
 export const metadata: Metadata = {
-  title: "Angolozz Otthonról – English with [Teacher Name]",
+  title: "Angolozz Otthonról – Angol [Tanár neve]-vel",
   description:
-    "Video lessons for intermediate and advanced learners – grammar clarity and real-life vocabulary.",
+    "Videóleckék középhaladó és haladó tanulóknak – érthető nyelvtan és való életben használt szókincs.",
 };
 
 export default async function RootLayout({
@@ -51,82 +51,7 @@ export default async function RootLayout({
             "-apple-system, BlinkMacSystemFont, system-ui, Segoe UI, sans-serif",
         }}
       >
-        <header
-          style={{
-            borderBottom: "1px solid #e5e7eb",
-            position: "sticky",
-            top: 0,
-            zIndex: 20,
-            backgroundColor: "#ffffff",
-          }}
-        >
-          <nav
-            style={{
-              maxWidth: "960px",
-              margin: "0 auto",
-              padding: "0.6rem 1rem",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div style={{ fontWeight: 700, fontSize: "1rem", color: "#111827" }}>
-              angolozzotthonrol.hu
-            </div>
-            <div
-              style={{
-                display: "flex",
-                gap: "1rem",
-                fontSize: "0.9rem",
-              }}
-            >
-              <Link href="/" style={{ textDecoration: "none", color: "#111827" }}>
-                Home
-              </Link>
-              <Link href="/about" style={{ textDecoration: "none", color: "#111827" }}>
-                About
-              </Link>
-              <Link href="/videos" style={{ textDecoration: "none", color: "#111827" }}>
-                Video Library
-              </Link>
-              {user ? (
-                <>
-                  <Link
-                    href="/favorites"
-                    style={{
-                      textDecoration: "none",
-                      color: "#111827",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Favorites
-                  </Link>
-                  <Link
-                    href="/auth"
-                    style={{
-                      textDecoration: "none",
-                      color: "#16a34a",
-                      fontWeight: 600,
-                    }}
-                  >
-                    Account
-                  </Link>
-                </>
-              ) : (
-                <Link
-                  href="/auth"
-                  style={{
-                    textDecoration: "none",
-                    color: "#16a34a",
-                    fontWeight: 600,
-                  }}
-                >
-                  Login
-                </Link>
-              )}
-            </div>
-          </nav>
-        </header>
+        <Header initialHasUser={!!user} />
 
         <main
           style={{
@@ -145,11 +70,11 @@ export default async function RootLayout({
             color: "#6b7280",
             borderTop: "1px solid #e5e7eb",
             marginTop: "2rem",
-            backgroundColor: "#ffffff",
-          }}
-        >
-          © {new Date().getFullYear()} angolozzotthonrol.hu – All rights
-          reserved.
+          backgroundColor: "#ffffff",
+        }}
+      >
+          © {new Date().getFullYear()} angolozzotthonrol.hu – Minden jog
+          fenntartva.
         </footer>
       </body>
     </html>
