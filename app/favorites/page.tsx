@@ -12,8 +12,9 @@ type FavRow = {
   videos: {
     id: string;
     title: string;
-    youtube_id: string;
-    level: string;
+    vimeo_id: string | null;
+    is_free: boolean | null;
+    is_published: boolean | null;
   } | null;
 };
 
@@ -23,36 +24,10 @@ type FavRowDb = {
   video_id: string;
 };
 
-function levelRank(level: string) {
-  const s = (level ?? "").trim().toLowerCase();
-
-  // FREE tier
-  if (!s || s === "beginner" || s === "free" || s === "basic" || s === "none") return 0;
-
-  if (s === "intermediate") return 1;
-  if (s === "upper-intermediate" || s === "upper_intermediate" || s === "upper intermediate") return 2;
-  if (s === "advanced") return 3;
-
-  // Unknown -> treat as locked (safer)
-  return 99;
-}
-
-function canAccessVideo(userSubLevel: string | null, videoLevel: string) {
-  return levelRank(userSubLevel ?? "free") >= levelRank(videoLevel);
-}
-
-function prettyLevel(level: string) {
-  const s = (level ?? "").trim().toLowerCase();
-  if (s === "upper-intermediate" || s === "upper_intermediate") return "Felső középhaladó";
-  if (s === "intermediate") return "Középhaladó";
-  if (s === "advanced") return "Haladó";
-  if (!s) return "Egyéb";
-  return s
-    .split(/[-_\s]+/)
-    .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(" ");
-}
+type AccessProfile = {
+  subscription_status?: string | null;
+  access_revoked?: boolean | null;
+};
 
 export default function FavoritesPage() {
   const [loading, setLoading] = useState(true);
@@ -60,7 +35,7 @@ export default function FavoritesPage() {
   const [rows, setRows] = useState<FavRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busyFavId, setBusyFavId] = useState<string | null>(null);
-  const [userSubLevel, setUserSubLevel] = useState<string | null>("free");
+  const [accessProfile, setAccessProfile] = useState<AccessProfile | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,22 +55,21 @@ export default function FavoritesPage() {
       }
 
       setUserId(userData.user.id);
-      // Load subscription level (defaults to "free")
+      // Load subscription status for access checks
       try {
         const { data: prof, error: profErr } = await supabase
             .from("profiles")
-            .select("subscription_level")
+            .select("subscription_status, access_revoked")
             .eq("user_id", userData.user.id)
             .maybeSingle();
 
         if (!profErr) {
-          const subscription_level = (prof as { subscription_level?: string | null } | null)?.subscription_level;
-          setUserSubLevel(subscription_level ?? "free");
+          setAccessProfile((prof ?? {}) as AccessProfile);
         } else {
-          setUserSubLevel("free");
+          setAccessProfile(null);
         }
       } catch {
-        setUserSubLevel("free");
+        setAccessProfile(null);
       }
 
       const { data: favData, error: favErr } = await supabase
@@ -122,7 +96,7 @@ export default function FavoritesPage() {
         // Fetch the related videos in one go
         const { data: vidData, error: vidErr } = await supabase
           .from("videos")
-          .select("id, title, youtube_id, level")
+          .select("id, title, vimeo_id, is_free, is_published")
           .in("id", videoIds);
 
         if (vidErr) {
@@ -142,8 +116,9 @@ export default function FavoritesPage() {
               {
                 id: String(v.id),
                 title: String(v.title),
-                youtube_id: String(v.youtube_id),
-                level: String(v.level ?? ""),
+                vimeo_id: (v as any).vimeo_id ? String((v as any).vimeo_id) : null,
+                is_free: Boolean((v as any).is_free),
+                is_published: (v as any).is_published ?? true,
               },
             ])
           );
@@ -256,7 +231,12 @@ export default function FavoritesPage() {
           {rows.map((r) => {
               const video = r.videos;
               const busy = busyFavId === r.id;
-              const unlocked = video ? canAccessVideo(userSubLevel, video.level) : false;
+              const accessGranted =
+                !!userId &&
+                !!accessProfile &&
+                !accessProfile.access_revoked &&
+                ["active", "trialing"].includes(String(accessProfile.subscription_status ?? "").toLowerCase());
+              const unlocked = video ? video.is_free || accessGranted : false;
               const upgradeHref = "/about"; // ide NE 404 legyen
 
               if (!video) {
@@ -322,19 +302,21 @@ export default function FavoritesPage() {
                     <h3 style={{ fontSize: "1rem", margin: 0, color: "#111827" }}>{video.title}</h3>
 
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                      <span
-                        style={{
-                          fontSize: "0.75rem",
-                          padding: "0.15rem 0.55rem",
-                          borderRadius: "999px",
-                          backgroundColor: "#f9fafb",
-                          border: "1px solid #e5e7eb",
-                          color: "#4b5563",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {prettyLevel(video.level)}
-                      </span>
+                      {video.is_free ? (
+                        <span
+                          style={{
+                            fontSize: "0.75rem",
+                            padding: "0.15rem 0.55rem",
+                            borderRadius: "999px",
+                            backgroundColor: "#ecfeff",
+                            border: "1px solid #a5f3fc",
+                            color: "#0e7490",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          Ingyenes
+                        </span>
+                      ) : null}
 
                       <button
                         type="button"
@@ -372,21 +354,24 @@ export default function FavoritesPage() {
                         backgroundColor: "#000",
                       }}
                   >
-                    <iframe
-                        src={`https://www.youtube.com/embed/${video.youtube_id}`}
-                        title={video.title}
-                        style={{
-                          position: "absolute",
-                          inset: 0,
-                          width: "100%",
-                          height: "100%",
-                          border: "none",
-                          pointerEvents: unlocked ? "auto" : "none",
-                          filter: unlocked ? "none" : "grayscale(1) blur(1px)",
-                          opacity: unlocked ? 1 : 0.55,
-                        }}
-                        allowFullScreen
-                    />
+                    {video.vimeo_id ? (
+                      <iframe
+                          src={`https://player.vimeo.com/video/${video.vimeo_id}`}
+                          title={video.title}
+                          style={{
+                            position: "absolute",
+                            inset: 0,
+                            width: "100%",
+                            height: "100%",
+                            border: "none",
+                            pointerEvents: unlocked ? "auto" : "none",
+                            filter: unlocked ? "none" : "grayscale(1) blur(1px)",
+                            opacity: unlocked ? 1 : 0.55,
+                          }}
+                          allow="autoplay; fullscreen; picture-in-picture"
+                          allowFullScreen
+                      />
+                    ) : null}
 
                     {!unlocked ? (
                         <div
@@ -412,7 +397,7 @@ export default function FavoritesPage() {
                               }}
                           >
                             <div style={{ fontSize: "0.9rem", color: "#111827", marginBottom: "0.35rem" }}>
-                              🔒 Zárolva — szükséges: {prettyLevel(video.level)}
+                              🔒 Zárolva — aktív előfizetés szükséges
                             </div>
                             <div style={{ fontSize: "0.85rem", color: "#4b5563", marginBottom: "0.6rem" }}>
                               Válts csomagot, hogy megnézhesd ezt a leckét.

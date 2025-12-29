@@ -10,10 +10,10 @@ type ContentBlock = {
   is_published: boolean | null;
 };
 
-const DEFAULT_ABOUT = {
-  title: "Rólam",
-  body:
-    "[Itt jöhet a magyar bemutatkozó szöveg – tanítási tapasztalat, cél, stílus, stb.]\n\n[Itt jöhet a bemutatkozó szöveg folytatása – tanítási tapasztalat, fókusz, és hogy mire számíthatnak a diákok a leckéken.]",
+type ContentBlockPageProps = {
+  blockKey: string;
+  defaultTitle: string;
+  defaultBody: string;
 };
 
 function splitParagraphs(body: string | null | undefined) {
@@ -24,12 +24,12 @@ function splitParagraphs(body: string | null | undefined) {
     .filter(Boolean);
 }
 
-export default function AboutPage() {
+export default function ContentBlockPage({ blockKey, defaultTitle, defaultBody }: ContentBlockPageProps) {
   const [block, setBlock] = useState<ContentBlock | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [draftTitle, setDraftTitle] = useState("");
-  const [draftBody, setDraftBody] = useState("");
+  const [draftTitle, setDraftTitle] = useState(defaultTitle);
+  const [draftBody, setDraftBody] = useState(defaultBody);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +38,7 @@ export default function AboutPage() {
       const { data } = await supabase
         .from("content_blocks")
         .select("key,title,body,is_published")
-        .eq("key", "about")
+        .eq("key", blockKey)
         .eq("is_published", true)
         .maybeSingle();
 
@@ -52,7 +52,7 @@ export default function AboutPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [blockKey]);
 
   useEffect(() => {
     let cancelled = false;
@@ -83,12 +83,12 @@ export default function AboutPage() {
     };
   }, []);
 
-  const title = block?.title ?? DEFAULT_ABOUT.title;
-  const paragraphs = useMemo(() => splitParagraphs(block?.body ?? DEFAULT_ABOUT.body), [block?.body]);
+  const title = block?.title ?? defaultTitle;
+  const paragraphs = useMemo(() => splitParagraphs(block?.body ?? defaultBody), [block?.body, defaultBody]);
 
   function startEdit() {
-    setDraftTitle(block?.title ?? DEFAULT_ABOUT.title);
-    setDraftBody(block?.body ?? DEFAULT_ABOUT.body);
+    setDraftTitle(block?.title ?? defaultTitle);
+    setDraftBody(block?.body ?? defaultBody);
     setEditing(true);
   }
 
@@ -100,9 +100,9 @@ export default function AboutPage() {
     if (!window.confirm("Mented a módosításokat?")) return;
 
     const payload = {
-      key: "about",
-      title: draftTitle.trim() || DEFAULT_ABOUT.title,
-      body: draftBody.trim() || DEFAULT_ABOUT.body,
+      key: blockKey,
+      title: draftTitle.trim() || defaultTitle,
+      body: draftBody.trim() || defaultBody,
       is_published: true,
       updated_at: new Date().toISOString(),
     };
@@ -113,10 +113,10 @@ export default function AboutPage() {
       return;
     }
 
-    const nextRow = (data ?? []).find((row) => String((row as any).key) === "about") as ContentBlock | undefined;
+    const nextRow = (data ?? []).find((row) => String((row as any).key) === blockKey) as ContentBlock | undefined;
     setBlock(
       nextRow ?? {
-        key: "about",
+        key: blockKey,
         title: payload.title,
         body: payload.body,
         is_published: true,
@@ -128,9 +128,9 @@ export default function AboutPage() {
   return (
     <div
       style={{
-        maxWidth: "800px",
+        maxWidth: "820px",
         margin: "0 auto",
-        padding: "5rem 1rem 3rem",
+        padding: "4.5rem 1rem 3rem",
       }}
     >
       <div
@@ -178,7 +178,7 @@ export default function AboutPage() {
               style={{ padding: "0.5rem 0.6rem", borderRadius: "8px", border: "1px solid #e5e7eb" }}
             />
             <textarea
-              rows={6}
+              rows={8}
               value={draftBody}
               onChange={(e) => setDraftBody(e.target.value)}
               style={{ padding: "0.5rem 0.6rem", borderRadius: "8px", border: "1px solid #e5e7eb" }}
@@ -202,59 +202,18 @@ export default function AboutPage() {
           </div>
         ) : null}
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "minmax(0,1.1fr) auto",
-            gap: "1.5rem",
-            alignItems: "flex-start",
-          }}
-        >
-          <div>
-            {paragraphs.map((text, idx) => (
-              <p
-                key={`about-${idx}`}
-                style={{
-                  fontSize: "0.95rem",
-                  color: idx === 0 ? "#374151" : "#4b5563",
-                  marginBottom: "0.75rem",
-                }}
-              >
-                {text}
-              </p>
-            ))}
-            <a
-              href="https://online.suli.hu/oktatok/adatlap/elvi0920"
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                display: "inline-flex",
-                marginTop: "0.75rem",
-                padding: "0.55rem 1rem",
-                borderRadius: "999px",
-                background: "linear-gradient(135deg, #22c55e, #16a34a)",
-                color: "white",
-                fontSize: "0.9rem",
-                fontWeight: 600,
-                textDecoration: "none",
-              }}
-            >
-              Értékelések az online.suli.hu oldalon
-            </a>
-          </div>
-
-          <img
-            src="/teacher_portrait.jpg"
-            alt="Angoltanár portré"
+        {paragraphs.map((text, idx) => (
+          <p
+            key={`${blockKey}-${idx}`}
             style={{
-              width: "160px",
-              height: "160px",
-              borderRadius: "999px",
-              objectFit: "cover",
-              border: "3px solid #22c55e",
+              fontSize: "0.95rem",
+              color: idx === 0 ? "#374151" : "#4b5563",
+              marginBottom: "0.75rem",
             }}
-          />
-        </div>
+          >
+            {text}
+          </p>
+        ))}
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ type HeaderProps = {
 export default function Header({ initialHasUser = false }: HeaderProps) {
   const [open, setOpen] = useState(false);
   const [user, setUser] = useState<UserLite>(initialHasUser ? { id: "initial" } : null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,6 +37,33 @@ export default function Header({ initialHasUser = false }: HeaderProps) {
       sub.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAdmin() {
+      if (!user?.id || user.id === "initial") {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!cancelled) {
+        setIsAdmin(!!data?.is_admin);
+      }
+    }
+
+    loadAdmin();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const handleNavClick = () => setOpen(false);
   const hasUser = !!user;
@@ -70,6 +98,11 @@ export default function Header({ initialHasUser = false }: HeaderProps) {
           </Link>
           {hasUser ? (
             <>
+              {isAdmin ? (
+                <Link href="/admin" onClick={handleNavClick}>
+                  Admin
+                </Link>
+              ) : null}
               <Link href="/favorites" onClick={handleNavClick}>
                 Kedvencek
               </Link>

@@ -14,17 +14,21 @@ type UserLite = {
 } | null;
 
 type ProfileData = {
-  subscription_level?: string | null;
-  created_at?: string | null;
+  subscription_status?: string | null;
+  current_period_end?: string | null;
+  access_revoked?: boolean | null;
   full_name?: string | null;
+  email?: string | null;
 };
 
-function prettyLevel(level?: string | null) {
-  const s = (level ?? "").trim().toLowerCase();
-  if (!s || s === "none" || s === "free" || s === "basic") return "Nincs előfizetés";
-  if (s === "upper-intermediate" || s === "upper_intermediate") return "Felső középhaladó";
-  if (s === "intermediate") return "Középhaladó";
-  if (s === "advanced") return "Haladó";
+function prettyStatus(status?: string | null, accessRevoked?: boolean | null) {
+  if (accessRevoked) return "Megvonva";
+  const s = (status ?? "").trim().toLowerCase();
+  if (!s || s === "inactive") return "Nincs aktív előfizetés";
+  if (s === "active") return "Aktív";
+  if (s === "trialing") return "Próbaidőszak";
+  if (s === "past_due") return "Fizetés elmaradt";
+  if (s === "canceled") return "Lemondva";
   return s
     .split(/[-_\s]+/)
     .filter(Boolean)
@@ -75,37 +79,24 @@ export default function ProfilePage() {
         user_metadata: data.user.user_metadata ?? undefined,
       };
       setUser(nextUser);
-      const metadataLevel = (data.user.user_metadata as any)?.subscription_level ?? null;
-      setFullName(
-        (data.user.user_metadata?.full_name as string | undefined) ??
-          (data.user.email ?? "")
-      );
+      const metadataFullName = (data.user.user_metadata as any)?.full_name ?? null;
+      setFullName((metadataFullName as string | undefined) ?? (data.user.email ?? ""));
 
       const { data: profileData, error: profileErr } = await supabase
         .from("profiles")
-        .select("subscription_level, created_at, full_name")
+        .select("subscription_status, current_period_end, access_revoked, full_name, email")
         .eq("user_id", data.user.id)
         .maybeSingle();
 
       if (cancelled) return;
 
       if (profileErr) {
-        setProfile(
-          metadataLevel
-            ? {
-                subscription_level: metadataLevel,
-              }
-            : null
-        );
+        setProfile(null);
       } else {
         const nextProfile = (profileData ?? {}) as ProfileData;
-        if (!nextProfile.subscription_level && metadataLevel) {
-          nextProfile.subscription_level = metadataLevel;
-        }
         setProfile(nextProfile);
-        if (profileData?.full_name) {
-          setFullName(profileData.full_name);
-        }
+        if (profileData?.full_name) setFullName(profileData.full_name);
+        if (!profileData?.full_name && metadataFullName) setFullName(metadataFullName as string);
       }
 
       setLoading(false);
@@ -122,13 +113,13 @@ export default function ProfilePage() {
   }, []);
 
   const subscriptionLabel = useMemo(
-    () => prettyLevel(profile?.subscription_level ?? null),
-    [profile?.subscription_level]
+    () => prettyStatus(profile?.subscription_status ?? null, profile?.access_revoked ?? null),
+    [profile?.subscription_status, profile?.access_revoked]
   );
 
-  const subscriptionSince = useMemo(
-    () => formatDate(profile?.created_at ?? null),
-    [profile?.created_at]
+  const subscriptionUntil = useMemo(
+    () => formatDate(profile?.current_period_end ?? null),
+    [profile?.current_period_end]
   );
 
   const registeredAt = useMemo(
@@ -152,6 +143,12 @@ export default function ProfilePage() {
         data: { full_name: trimmed },
       });
       if (updateErr) throw updateErr;
+      if (user?.id) {
+        const { error: profileErr } = await supabase
+          .from("profiles")
+          .upsert({ user_id: user.id, full_name: trimmed, email: user.email ?? null }, { onConflict: "user_id" });
+        if (profileErr) throw profileErr;
+      }
       setMessage("A név frissítve.");
     } catch (e: any) {
       setError(e?.message ?? "Nem sikerült frissíteni a nevet.");
@@ -282,8 +279,8 @@ export default function ProfilePage() {
       >
         <h2 style={{ fontSize: "1.1rem", marginBottom: "0.75rem", color: "#111827" }}>Előfizetés</h2>
         <div style={{ display: "grid", gap: "0.5rem", color: "#4b5563", fontSize: "0.95rem" }}>
-          <div>Előfizetési szint: <strong style={{ color: "#111827" }}>{subscriptionLabel}</strong></div>
-          <div>Előfizetés kezdete: <strong style={{ color: "#111827" }}>{subscriptionSince}</strong></div>
+          <div>Előfizetés státusz: <strong style={{ color: "#111827" }}>{subscriptionLabel}</strong></div>
+          <div>Hozzáférés vége: <strong style={{ color: "#111827" }}>{subscriptionUntil}</strong></div>
           <div>Regisztráció dátuma: <strong style={{ color: "#111827" }}>{registeredAt}</strong></div>
         </div>
       </section>

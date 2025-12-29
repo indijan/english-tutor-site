@@ -1,6 +1,7 @@
 // app/layout.tsx
 import type { Metadata } from "next";
 import "./globals.css";
+import Link from "next/link";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import Header from "./components/Header";
@@ -70,11 +71,23 @@ export default async function RootLayout({
             color: "#6b7280",
             borderTop: "1px solid #e5e7eb",
             marginTop: "2rem",
-          backgroundColor: "#ffffff",
-        }}
-      >
-          © {new Date().getFullYear()} angolozzotthonrol.hu – Minden jog
-          fenntartva.
+            backgroundColor: "#ffffff",
+          }}
+        >
+          <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+            <Link href="/terms" style={{ color: "#2563eb", textDecoration: "none" }}>
+              ÁSZF
+            </Link>
+            <Link href="/privacy" style={{ color: "#2563eb", textDecoration: "none" }}>
+              Adatkezelés
+            </Link>
+            <Link href="/contact" style={{ color: "#2563eb", textDecoration: "none" }}>
+              Kapcsolat
+            </Link>
+          </div>
+          <div style={{ marginTop: "0.5rem" }}>
+            © {new Date().getFullYear()} angolozzotthonrol.hu – Minden jog fenntartva.
+          </div>
         </footer>
       </body>
     </html>

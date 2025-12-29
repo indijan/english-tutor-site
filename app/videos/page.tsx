@@ -7,8 +7,16 @@ import { supabase } from "../../lib/supabaseClient";
 type VideoRow = {
   id: string;
   title: string;
-  youtube_id: string;
-  level: string;
+  vimeo_id: string | null;
+  is_published: boolean | null;
+  is_free: boolean | null;
+  sort_order: number | null;
+};
+
+type CategoryRow = {
+  id: string;
+  name: string;
+  slug: string;
 };
 
 type UserLite = {
@@ -16,20 +24,18 @@ type UserLite = {
   email?: string | null;
 } | null;
 
-type SubscriptionLevel =
-  | "none"
-  | "intermediate"
-  | "upper-intermediate"
-  | "upper_intermediate"
-  | "advanced";
+type AccessProfile = {
+  subscription_status?: string | null;
+  access_revoked?: boolean | null;
+};
 
-function prettyLevel(level: string) {
-  const s = (level ?? "").trim().toLowerCase();
-  if (s === "upper-intermediate" || s === "upper_intermediate") return "Felső középhaladó";
-  if (s === "intermediate") return "Középhaladó";
-  if (s === "advanced") return "Haladó";
-  if (s === "none") return "Nincs";
-  if (!s) return "Egyéb";
+function prettyStatus(status?: string | null) {
+  const s = (status ?? "").trim().toLowerCase();
+  if (!s || s === "inactive") return "Nincs aktív előfizetés";
+  if (s === "active") return "Aktív";
+  if (s === "trialing") return "Próbaidőszak";
+  if (s === "past_due") return "Fizetés elmaradt";
+  if (s === "canceled") return "Lemondva";
   return s
     .split(/[-_\s]+/)
     .filter(Boolean)
@@ -37,32 +43,13 @@ function prettyLevel(level: string) {
     .join(" ");
 }
 
-function levelRank(level: string): number {
-  const s = (level ?? "").trim().toLowerCase();
-
-  // FREE / beginner tier
-  if (!s || s === "beginner" || s === "free" || s === "basic" || s === "none") return 0;
-
-  if (s === "intermediate") return 1;
-  if (s === "upper-intermediate" || s === "upper_intermediate" || s === "upper intermediate") return 2;
-  if (s === "advanced") return 3;
-
-  // Unknown levels -> lock to be safe
-  return 99;
-}
-
-function subscriptionRank(sub: SubscriptionLevel): number {
-  const s = (sub ?? "none").toString().trim().toLowerCase();
-  if (s === "advanced") return 3;
-  if (s === "upper-intermediate" || s === "upper_intermediate") return 2;
-  if (s === "intermediate") return 1;
-  return 0;
-}
-
 export default function VideosPage() {
   const [user, setUser] = useState<UserLite>(null);
-  const [subscriptionLevel, setSubscriptionLevel] = useState<SubscriptionLevel>("none");
+  const [accessProfile, setAccessProfile] = useState<AccessProfile | null>(null);
   const [videos, setVideos] = useState<VideoRow[]>([]);
+  const [categories, setCategories] = useState<CategoryRow[]>([]);
+  const [videoCategoryMap, setVideoCategoryMap] = useState<Record<string, string[]>>({});
+  const [activeCategories, setActiveCategories] = useState<Set<string>>(new Set());
   const [favoritesSet, setFavoritesSet] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [favBusyId, setFavBusyId] = useState<string | null>(null);
@@ -89,7 +76,7 @@ export default function VideosPage() {
     };
   }, []);
 
-  // 2) Load videos
+  // 2) Load videos + categories
   useEffect(() => {
     let cancelled = false;
 
@@ -99,17 +86,39 @@ export default function VideosPage() {
 
       const { data, error } = await supabase
         .from("videos")
-        .select("id,title,youtube_id,level")
-        .order("level", { ascending: true })
+        .select("id,title,vimeo_id,is_published,is_free,sort_order")
+        .eq("is_published", true)
+        .order("sort_order", { ascending: true })
         .order("title", { ascending: true });
+
+      const { data: categoryRows, error: catErr } = await supabase
+        .from("categories")
+        .select("id,name,slug")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true })
+        .order("name", { ascending: true });
+
+      const { data: mapRows, error: mapErr } = await supabase
+        .from("video_categories")
+        .select("video_id,category_id");
 
       if (cancelled) return;
 
-      if (error) {
-        setError(error.message);
+      if (error || catErr || mapErr) {
+        setError(error?.message ?? catErr?.message ?? mapErr?.message ?? "Nem sikerült betölteni az adatokat.");
         setVideos([]);
+        setCategories([]);
+        setVideoCategoryMap({});
       } else {
         setVideos((data ?? []) as VideoRow[]);
+        setCategories((categoryRows ?? []) as CategoryRow[]);
+        const map: Record<string, string[]> = {};
+        for (const row of mapRows ?? []) {
+          const vid = (row as any).video_id as string;
+          const cat = (row as any).category_id as string;
+          map[vid] = map[vid] ? [...map[vid], cat] : [cat];
+        }
+        setVideoCategoryMap(map);
       }
 
       setLoading(false);
@@ -155,30 +164,30 @@ export default function VideosPage() {
     };
   }, [user]);
 
-  // 4) Load subscription level for this user
+  // 4) Load subscription access for this user
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       if (!user) {
-        setSubscriptionLevel("none");
+        setAccessProfile(null);
         return;
       }
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("subscription_level")
+        .select("subscription_status, access_revoked")
         .eq("user_id", user.id)
         .maybeSingle();
 
       if (cancelled) return;
 
-      if (error || !data?.subscription_level) {
-        setSubscriptionLevel("none");
+      if (error) {
+        setAccessProfile(null);
         return;
       }
 
-      setSubscriptionLevel(String(data.subscription_level) as SubscriptionLevel);
+      setAccessProfile((data ?? {}) as AccessProfile);
     })();
 
     return () => {
@@ -186,25 +195,43 @@ export default function VideosPage() {
     };
   }, [user]);
 
-  const groups = useMemo(() => {
-    return videos.reduce<Record<string, VideoRow[]>>((acc, v) => {
-      const key = v.level || "other";
-      (acc[key] ||= []).push(v);
-      return acc;
-    }, {});
-  }, [videos]);
+  const accessStatusLabel = useMemo(
+    () => prettyStatus(accessProfile?.subscription_status ?? null),
+    [accessProfile?.subscription_status]
+  );
+  const accessGranted =
+    !!user &&
+    !!accessProfile &&
+    !accessProfile.access_revoked &&
+    ["active", "trialing"].includes(String(accessProfile.subscription_status ?? "").toLowerCase());
 
-  const sortedLevels = useMemo(() => {
-    const levelOrder = ["intermediate", "upper-intermediate", "upper_intermediate", "advanced", "other"];
-    return Object.keys(groups).sort((a, b) => {
-      const ai = levelOrder.indexOf(a);
-      const bi = levelOrder.indexOf(b);
-      if (ai === -1 && bi === -1) return a.localeCompare(b);
-      if (ai === -1) return 1;
-      if (bi === -1) return -1;
-      return ai - bi;
+  const filteredVideos = useMemo(() => {
+    if (activeCategories.size === 0) return videos;
+    return videos.filter((video) => {
+      const cats = videoCategoryMap[video.id] ?? [];
+      return cats.some((id) => activeCategories.has(id));
     });
-  }, [groups]);
+  }, [videos, videoCategoryMap, activeCategories]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const video of videos) {
+      const cats = videoCategoryMap[video.id] ?? [];
+      for (const id of cats) {
+        counts[id] = (counts[id] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [videos, videoCategoryMap]);
+
+  function toggleCategory(id: string) {
+    setActiveCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   async function toggleFavorite(videoId: string) {
     if (!user) {
@@ -248,7 +275,7 @@ export default function VideosPage() {
   }
 
   return (
-    <div style={{ maxWidth: "960px", margin: "0 auto", padding: "2rem 1rem 3rem" }}>
+    <div style={{ maxWidth: "1100px", margin: "0 auto", padding: "2rem 1rem 3rem" }}>
       <header style={{ marginBottom: "1.5rem" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: "1rem" }}>
           <h1 style={{ fontSize: "2rem", marginBottom: "0.5rem", color: "#111827" }}>Videótár</h1>
@@ -268,7 +295,7 @@ export default function VideosPage() {
 
         <p style={{ color: "#4b5563", maxWidth: "820px" }}>
           A videók a Supabase-ből töltődnek be. A csillaggal mentheted a kedvenceket.
-          {user ? ` Előfizetésed: ${prettyLevel(subscriptionLevel)}.` : ""}
+          {user ? ` Előfizetésed: ${accessStatusLabel}.` : ""}
         </p>
       </header>
 
@@ -295,188 +322,292 @@ export default function VideosPage() {
           </p>
         </div>
       ) : (
-        sortedLevels.map((level) => (
-          <section key={level} style={{ marginBottom: "2.25rem" }}>
-            <h2 style={{ fontSize: "1.35rem", marginBottom: "0.9rem", color: "#111827" }}>{prettyLevel(level)}</h2>
-
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1.5rem" }}>
-              {groups[level].map((video) => {
-                const isFav = favoritesSet.has(video.id);
-                const busy = favBusyId === video.id;
-                const canWatch = !!user && levelRank(video.level) <= subscriptionRank(subscriptionLevel);
-
-                return (
-                  <article
-                    key={video.id}
+        <section style={{ display: "grid", gridTemplateColumns: "minmax(0, 220px) minmax(0, 1fr)", gap: "1.75rem" }}>
+          <aside
+            style={{
+              backgroundColor: "#ffffff",
+              border: "1px solid #e5e7eb",
+              borderRadius: "16px",
+              padding: "1rem",
+              alignSelf: "start",
+            }}
+          >
+            <h2 style={{ fontSize: "1rem", marginBottom: "0.75rem", color: "#111827" }}>Kategóriák</h2>
+            {categories.length === 0 ? (
+              <div style={{ color: "#6b7280", fontSize: "0.9rem" }}>Nincs kategória.</div>
+            ) : (
+              <div style={{ display: "grid", gap: "0.5rem" }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveCategories(new Set())}
+                  style={{
+                    textAlign: "left",
+                    border: "1px solid #e5e7eb",
+                    background: activeCategories.size === 0 ? "#111827" : "#ffffff",
+                    color: activeCategories.size === 0 ? "#ffffff" : "#111827",
+                    borderRadius: "10px",
+                    padding: "0.4rem 0.6rem",
+                    cursor: "pointer",
+                  }}
+                >
+                  Összes videó ({videos.length})
+                </button>
+                {categories.map((cat) => {
+                  const active = activeCategories.has(cat.id);
+                  const count = categoryCounts[cat.id] ?? 0;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => toggleCategory(cat.id)}
+                      style={{
+                        textAlign: "left",
+                        border: "1px solid #e5e7eb",
+                        background: active ? "#f97316" : "#ffffff",
+                        color: active ? "#ffffff" : "#111827",
+                        borderRadius: "10px",
+                        padding: "0.4rem 0.6rem",
+                        cursor: "pointer",
+                      }}
+                    >
+                      {cat.name} ({count})
+                    </button>
+                  );
+                })}
+                {activeCategories.size > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveCategories(new Set())}
                     style={{
-                      borderRadius: "14px",
-                      padding: "0.95rem",
-                      backgroundColor: "#ffffff",
-                      border: "1px solid #e5e7eb",
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "0.6rem",
+                      textAlign: "left",
+                      border: "1px dashed #e5e7eb",
+                      background: "#ffffff",
+                      color: "#6b7280",
+                      borderRadius: "10px",
+                      padding: "0.4rem 0.6rem",
+                      cursor: "pointer",
                     }}
                   >
+                    Szűrők törlése
+                  </button>
+                ) : null}
+              </div>
+            )}
+          </aside>
+
+          <div style={{ display: "grid", gap: "1rem" }}>
+            <div style={{ color: "#6b7280", fontSize: "0.9rem" }}>
+              Találat: {filteredVideos.length} videó
+            </div>
+            {filteredVideos.length === 0 ? (
+              <div style={{ color: "#6b7280" }}>Ebben a kategóriában nincs videó.</div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "1.5rem" }}>
+                {filteredVideos.map((video) => {
+                  const isFav = favoritesSet.has(video.id);
+                  const busy = favBusyId === video.id;
+                  const canWatch = !!video.is_free || accessGranted;
+                  const cats = videoCategoryMap[video.id] ?? [];
+
+              return (
+                <article
+                  key={video.id}
+                  style={{
+                    borderRadius: "14px",
+                    padding: "0.95rem",
+                    backgroundColor: "#ffffff",
+                    border: "1px solid #e5e7eb",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: "0.6rem",
+                  }}
+                >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem" }}>
                       <h3 style={{ fontSize: "1rem", margin: 0, color: "#111827" }}>{video.title}</h3>
 
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      {video.is_free ? (
                         <span
                           style={{
                             fontSize: "0.75rem",
                             padding: "0.15rem 0.55rem",
                             borderRadius: "999px",
-                            backgroundColor: "#f9fafb",
-                            border: "1px solid #e5e7eb",
-                            color: "#4b5563",
+                            backgroundColor: "#ecfeff",
+                            border: "1px solid #a5f3fc",
+                            color: "#0e7490",
                             whiteSpace: "nowrap",
                           }}
                         >
-                          {prettyLevel(video.level)}
+                          Ingyenes
                         </span>
+                      ) : null}
 
-                        <button
-                          type="button"
-                          onClick={() => toggleFavorite(video.id)}
-                          disabled={busy}
-                          title={
-                            user
-                              ? isFav
-                                ? "Eltávolítás a kedvencek közül"
-                                : "Hozzáadás a kedvencekhez"
-                              : "Jelentkezz be a kedvencek mentéséhez"
-                          }
-                          style={{
-                            border: "1px solid #e5e7eb",
-                            background: isFav ? "#fff7ed" : "#ffffff",
-                            color: isFav ? "#c2410c" : "#6b7280",
-                            borderRadius: "999px",
-                            width: "40px",
-                            height: "32px",
-                            cursor: busy ? "not-allowed" : "pointer",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "1rem",
-                            lineHeight: 1,
-                          }}
-                        >
-                          {busy ? "…" : isFav ? "★" : "☆"}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleFavorite(video.id)}
+                        disabled={busy}
+                        title={
+                          user
+                            ? isFav
+                              ? "Eltávolítás a kedvencek közül"
+                              : "Hozzáadás a kedvencekhez"
+                            : "Jelentkezz be a kedvencek mentéséhez"
+                        }
+                        style={{
+                          border: "1px solid #e5e7eb",
+                          background: isFav ? "#fff7ed" : "#ffffff",
+                          color: isFav ? "#c2410c" : "#6b7280",
+                          borderRadius: "999px",
+                          width: "40px",
+                          height: "32px",
+                          cursor: busy ? "not-allowed" : "pointer",
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "1rem",
+                          lineHeight: 1,
+                        }}
+                      >
+                        {busy ? "…" : isFav ? "★" : "☆"}
+                      </button>
                     </div>
+                    </div>
+
+                    {cats.length > 0 ? (
+                      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                        {cats.map((catId) => {
+                          const cat = categories.find((c) => c.id === catId);
+                          if (!cat) return null;
+                          return (
+                            <span
+                              key={`${video.id}-${catId}`}
+                              style={{
+                                fontSize: "0.7rem",
+                                padding: "0.1rem 0.5rem",
+                                borderRadius: "999px",
+                                backgroundColor: "#f3f4f6",
+                                border: "1px solid #e5e7eb",
+                                color: "#374151",
+                              }}
+                            >
+                              {cat.name}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    ) : null}
 
                     <div
                       style={{
                         position: "relative",
                         paddingBottom: "56.25%",
-                        height: 0,
-                        borderRadius: "10px",
-                        overflow: "hidden",
-                        border: "1px solid #e5e7eb",
-                        backgroundColor: "#000",
-                      }}
-                    >
-                      {canWatch ? (
-                        <iframe
-                          src={`https://www.youtube.com/embed/${video.youtube_id}`}
-                          title={video.title}
-                          style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
-                          allowFullScreen
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            position: "absolute",
-                            inset: 0,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            padding: "1rem",
-                            textAlign: "center",
-                            background:
-                              "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.10), rgba(0,0,0,0.85) 60%), linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.85))",
-                            color: "#f9fafb",
-                          }}
-                        >
-                          <div style={{ maxWidth: "340px" }}>
-                            <div style={{ fontSize: "1.25rem", marginBottom: "0.35rem" }}>🔒 Zárolva</div>
-
-                            {!user ? (
-                              <>
-                                <div style={{ fontSize: "0.95rem", opacity: 0.9, marginBottom: "0.75rem" }}>
-                                  A videó megtekintéséhez kérjük, jelentkezz be.
-                                </div>
-                                <Link
-                                  href="/auth"
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    padding: "0.5rem 0.8rem",
-                                    borderRadius: "999px",
-                                    backgroundColor: "#ffffff",
-                                    color: "#111827",
-                                    textDecoration: "none",
-                                    fontSize: "0.9rem",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  Bejelentkezés
-                                </Link>
-                              </>
-                            ) : (
-                              <>
-                                <div style={{ fontSize: "0.95rem", opacity: 0.9, marginBottom: "0.35rem" }}>
-                                  Az előfizetésed ({prettyLevel(subscriptionLevel)}) nem tartalmazza ezt a szintet.
-                                </div>
-                                <div style={{ fontSize: "0.85rem", opacity: 0.75, marginBottom: "0.75rem" }}>
-                                  Szükséges szint: {prettyLevel(video.level)}
-                                </div>
-                                <Link
-                                  href="/account"
-                                  style={{
-                                    display: "inline-flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    padding: "0.5rem 0.8rem",
-                                    borderRadius: "999px",
-                                    backgroundColor: "#ffffff",
-                                    color: "#111827",
-                                    textDecoration: "none",
-                                    fontSize: "0.9rem",
-                                    fontWeight: 600,
-                                  }}
-                                >
-                                  Csomagváltás
-                                </Link>
-                              </>
-                            )}
+                      height: 0,
+                      borderRadius: "10px",
+                      overflow: "hidden",
+                      border: "1px solid #e5e7eb",
+                      backgroundColor: "#000",
+                    }}
+                  >
+                    {canWatch && video.vimeo_id ? (
+                      <iframe
+                        src={`https://player.vimeo.com/video/${video.vimeo_id}`}
+                        title={video.title}
+                        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: "none" }}
+                        allow="autoplay; fullscreen; picture-in-picture"
+                        allowFullScreen
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          position: "absolute",
+                          inset: 0,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          padding: "1rem",
+                          textAlign: "center",
+                          background:
+                            "radial-gradient(circle at 30% 20%, rgba(255,255,255,0.10), rgba(0,0,0,0.85) 60%), linear-gradient(180deg, rgba(0,0,0,0.65), rgba(0,0,0,0.85))",
+                          color: "#f9fafb",
+                        }}
+                      >
+                        <div style={{ maxWidth: "340px" }}>
+                          <div style={{ fontSize: "1.25rem", marginBottom: "0.35rem" }}>
+                            {video.vimeo_id ? "🔒 Zárolva" : "⚠️ Hiányzó Vimeo ID"}
                           </div>
-                        </div>
-                      )}
-                    </div>
 
-                    <div
-                      style={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
-                        marginTop: "0.25rem",
+                          {!user ? (
+                            <>
+                              <div style={{ fontSize: "0.95rem", opacity: 0.9, marginBottom: "0.75rem" }}>
+                                A videó megtekintéséhez kérjük, jelentkezz be.
+                              </div>
+                              <Link
+                                href="/auth"
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "0.5rem 0.8rem",
+                                  borderRadius: "999px",
+                                  backgroundColor: "#ffffff",
+                                  color: "#111827",
+                                  textDecoration: "none",
+                                  fontSize: "0.9rem",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Bejelentkezés
+                              </Link>
+                            </>
+                          ) : (
+                            <>
+                              <div style={{ fontSize: "0.95rem", opacity: 0.9, marginBottom: "0.75rem" }}>
+                                A videó megtekintéséhez aktív előfizetés szükséges.
+                              </div>
+                              <Link
+                                href="/account"
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: "0.5rem 0.8rem",
+                                  borderRadius: "999px",
+                                  backgroundColor: "#ffffff",
+                                  color: "#111827",
+                                  textDecoration: "none",
+                                  fontSize: "0.9rem",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                Előfizetés
+                              </Link>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginTop: "0.25rem",
                       fontSize: "0.85rem",
                       color: "#6b7280",
                     }}
                   >
-                      <span style={{ opacity: 0.75 }}>{canWatch ? "✅ Elérhető" : "🔒 Zárolva"}</span>
-                      <span style={{ opacity: 0.75 }}>Szükséges: {prettyLevel(video.level)}</span>
-                    </div>
+                    <span style={{ opacity: 0.75 }}>{canWatch ? "✅ Elérhető" : "🔒 Zárolva"}</span>
+                    <span style={{ opacity: 0.75 }}>{video.is_free ? "Ingyenes" : "Előfizetéses"}</span>
+                  </div>
                   </article>
                 );
               })}
-            </div>
-          </section>
-        ))
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
       <footer style={{ marginTop: "1.5rem", display: "flex", gap: "1rem", flexWrap: "wrap" }}>
